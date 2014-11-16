@@ -2,21 +2,46 @@
 """
 Created on Sun Apr 21 13:08:45 2013
 
-@author: sunalliance
+@author: Miguel Herschberg
 
-He - Desde el principio. Lo que estoy probando aca es si es posible
-hacer los nodos como "abac" y despues convertirlos a numeros. 
+He - This implementation of the He tree works the following way:
+    'a' = root of the tree
+    'ax, ay, az' = second step
+    'axx, axy,axz, axy,ayy,ayz, axz,ayz,azz = third step
 
-Este es la ultima version del He
+Note that every item in the list must be sorted alphabetically because I want
+Networkx to recognize say 'axy' and 'ayx' as the same node.
+
+At each step in the graph, I use two arrays to hold the current step nodes and
+the previous step nodes. For example:
+    
+    previous_step = [ax, ay, az]    
+    current_step = [axx, axy, axz,  axy, ayy, ayz,  axz,ayz,azz]
+
+To add the nodes/edges to the tree, I do a for loop which does:
+
+for node in previous_step:
+    add the nodes/edges [(ax, axx), (ax, axy), (ax, axz)] to the graph
+    pop these 3 elements from current_step: current_step = current_step[3::]
+
+Once the tree is built, G.node[node]['s1'] stores the information for the 
+first asset and similarly  G.node[node]['s2'] for the second asset. 
+
+For every node G.node[node]['s1'] is calculated doing:
+    
+    string('axy') -> string('a*x*y') -> float(a*x*y) = G.node['axy']['s1'] 
+
+The backward induction is done recursively by changing each node's value:
+G.node[node]['value']
+
 """
 
 
 from __future__ import division
 from math import sqrt
 import networkx as nx
-import numpy as np
-import collections
-from string import maketrans #This I'm going to use to translate xyz, jkl
+# This is used to translate xyz to jkl for the second asset
+from string import maketrans 
 
 
 def he(years, n, s1, s2, sigma1, sigma2, rho, r):
@@ -46,7 +71,7 @@ def he(years, n, s1, s2, sigma1, sigma2, rho, r):
     #this is used to translate between x->j , y->k, j->l 
     intab="axyz"; outtab="ajkl"
 
-
+    
     G=nx.DiGraph() #I initiate the graph
 
     current_step_nodes=[]
@@ -71,9 +96,7 @@ def he(years, n, s1, s2, sigma1, sigma2, rho, r):
 
         cu = current_step_nodes
         pr = previous_step_nodes
-        
-        i=0
-        print 'Se agrega periodo = ' + str(i)
+
         while len(cu)>2:
             print 'len pr =' + str(len(pr))
             for nta in pr:
@@ -81,21 +104,17 @@ def he(years, n, s1, s2, sigma1, sigma2, rho, r):
                 G.add_edge(nta,cu[1])
                 G.add_edge(nta,cu[2])
                 cu = cu[3::]
-            i=i+1
-            print 'Se agrega periodo = ' + str(i)
+
     
-
-
-
     #print "\n the tree is complete "
     print len(G.nodes())
     #print "\n Assign the values for both assets"
-    # Now that the tree is complete. 
-    # We assign the values to s1,s2,etc. This is very fast because is a dictionary
+    # Now that the tree is complete. We assign the values to s1,s2,etc. 
     for ns1 in G.nodes():
         #This is for the first asset
         val_s1 = '*'.join(list(ns1)) #this turns 'az' into 'a*z'
-        products = eval(val_s1, globals(), values_s1) #this turns 'a*z' into a number
+        #turns 'a*z' into a number
+        products = eval(val_s1, globals(), values_s1) 
         G.node[ns1]['s1']=products
         
         #For the second asset
@@ -105,9 +124,7 @@ def he(years, n, s1, s2, sigma1, sigma2, rho, r):
         #I want to set the 'value' to zero here for all the nodes:
         G.node[ns1]['value']=0
 
-           
 
-    #set(current_step_nodes) this returns the leafs NO duplicates
 
     #This sets the values for the final nodes 
     for leafs in set(current_step_nodes):
@@ -142,11 +159,6 @@ def he(years, n, s1, s2, sigma1, sigma2, rho, r):
     #Remember ['a'] is the root. 
     #print '\n The price of the option is {0}'.format(G.node['a']['value'])
     
-
-
-
-
-
     return G.node['a']['value']
 
 
